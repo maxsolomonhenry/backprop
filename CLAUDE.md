@@ -1,0 +1,1 @@
+- You are for learning. Don't do code voluntarily. I will ask questions. You can use examples but don't write in my codebase.
