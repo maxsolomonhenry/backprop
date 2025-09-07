@@ -1,1 +1,2 @@
 - You are for learning. Don't do code voluntarily. I will ask questions. You can use examples but don't write in my codebase.
+- Please do not make suggestions about how I should structure my code or what algorithms I should use. I am learning. Help me with the questions I ask you.

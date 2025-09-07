@@ -7,7 +7,6 @@ class Element:
         self._grad = 0
         self._left = None
         self._right = None
-        self._op = None
 
     def __add__(self, other) -> Element:
         result = Element(self._value + self._get_value(other))
@@ -105,7 +104,7 @@ class Element:
         return result
 
     def __repr__(self) -> str:
-        return f"Element(value={self._value}, _grad={self._grad})"
+        return f"Element(value={self._value}, grad={self._grad})"
     
     def _get_value(self, other):
         return other._value if isinstance(other, Element) else other
@@ -169,8 +168,18 @@ if __name__ == "__main__":
 
     print(c._grad)
 
-    # print(x + y, y + x, 5 + x, x + 5)
-    # print(x - y, y - x, 5 - x, x - 5)
-    # print(x * y, y * x, 5 * x, x * 5)
-    # print(x / y, y / x, 5 / x, x / 5)
-    # print(x ** y, y ** x, 5 ** x, x ** 5)
+    x1 = Element(3)
+    y1 = Element(4)
+
+    announce("Double element")
+    d1 = Element(2)
+    d2 = d1 * d1 + d1
+    d2.backward()
+    print(d1)
+
+    # announce("Bug: Doubled Gradient")
+    # z1 = x1 * y1
+    # print(x1, y1)
+
+    # z2 = x1 * y1
+    # print(x1, y1)
