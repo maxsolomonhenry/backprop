@@ -1,0 +1,144 @@
+from __future__ import annotations
+import numpy as np
+
+class Element:
+    def __init__(self, value):
+        self._value = value
+        self._grad = 0
+        self._left = None
+        self._right = None
+        self._op = None
+
+    def __add__(self, other) -> Element:
+        result = Element(self._value + self._get_value(other))
+        result._left = self
+        result._right = other
+
+        result._dleft = 1
+        result._dright = 1
+        return result
+    
+    def __sub__(self, other) -> Element:
+        result = Element(self._value - self._get_value(other))
+        result._left = self
+        result._right = other
+
+        result._dleft = 1
+        result._dright = -1
+        return result
+    
+    def __mul__(self, other) -> Element:
+        result = Element(self._value * self._get_value(other))
+        result._left = self
+        result._right = other
+
+        result._dleft = self._get_value(other)
+        result._dright = self._value
+        return result
+
+    def __truediv__(self, other) -> Element:
+        result = Element(self._value / self._get_value(other))
+        result._left = self
+        result._right = other
+
+        result._dleft = 1 / self._get_value(other)
+        result._dright = - self._value /  self._get_value(other) ** 2
+        return result
+    
+    def __pow__(self, other) -> Element:
+        result = Element(self._value ** self._get_value(other))
+        result._left = self
+        result._right = other
+
+        result._dleft = self._get_value(other) * self._value ** (self._get_value(other) - 1)
+        result._dright = result._value * np.log(self._value)
+        return result
+    
+    def __radd__(self, other) -> Element:
+        result = Element(self._value + other)
+        result._left = other
+        result._right = self
+
+        result._dright = 1
+        return result
+    
+    def __rsub__(self, other) -> Element:
+        result = Element(other - self._value)
+        result._left = other
+        result._right = self
+
+        result._dright = -1
+        return result
+    
+    def __rmul__(self, other) -> Element:
+        result = Element(self._value * other)
+        result._left = other
+        result._right = self
+
+        result._dright = other
+        return result
+    
+    def __rtruediv__(self, other) -> Element:
+        result = Element(other / self._value)
+        result._left = other
+        result._right = self
+
+        result._dright = - other /  self._value ** 2 
+        return result
+    
+    def __rpow__(self, other) -> Element:
+        result = Element(other ** self._value)
+        result._left = other
+        result._right = self
+
+        result._dright = result._value * np.log(other)
+        return result
+    
+    def __pos__(self) -> Element:
+        return self
+    
+    def __neg__(self) -> Element:
+        result = Element(-self._value)
+        result._left = self
+
+        result._dleft = -1
+        return result
+    
+    def __abs__(self) -> Element:
+        result = Element(abs(self._value))
+        result._left = self
+        result._dleft = np.sign(self._value)
+        return result
+
+    def __repr__(self) -> str:
+        return f"Element(value={self._value}, grad={self._grad})"
+    
+    def _get_value(self, other):
+        return other._value if isinstance(other, Element) else other
+    
+    def backward(self, is_root=True):
+
+        if is_root:
+            self._grad = 1
+            
+            if isinstance(self._left, Element):
+                self._left.reset()
+            if isinstance(self._right, Element):
+                self._right.reset()
+
+        if isinstance(self._left, Element):
+            self._left._grad += self._dleft * self._grad
+            self._left.backward(is_root=False)
+
+        if isinstance(self._right, Element):
+            self._right._grad += self._dright * self._grad
+            self._right.backward(is_root=False)
+
+    def reset(self):
+        self._grad = 0
+
+        if isinstance(self._left, Element):
+            self._left.reset()
+
+        if isinstance(self._right, Element):
+            self._right.reset()
