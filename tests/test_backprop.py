@@ -105,6 +105,16 @@ def run_tests():
                  lambda: x10**2 * y10 + x10 * y10**2, [x10, y10], [21, 16]):
         passed += 1
     
+    # Test 11: Deep chain rule with shared nodes
+    x11 = Element(2)
+    y11 = x11 * x11
+    z11 = y11 * y11
+    total += 1
+    # dz/dx = 4x^3 = 4 * 2^3 = 32
+    if test_case("Deep shared node: f(x) = (x²)²",
+                 lambda: z11, [x11], [32]):
+        passed += 1
+    
     print(f"\n{'=' * 50}")
     print(f"Test Results: {passed}/{total} passed")
     print(f"Success rate: {100 * passed / total:.1f}%")

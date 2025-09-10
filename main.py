@@ -4,34 +4,16 @@ def announce(title, n_repeat=10):
     print("=" * n_repeat, title, "=" * n_repeat)
 
 if __name__ == "__main__":
+    announce("Expected gradient.")
     x = Element(2)
-    y = Element(3)
 
-    print(x._grad, y._grad)
+    z = (x * x) * (x * x)
+    z.backward()
+    print(x)
 
-    z = x * y
-    a = z ** 2
-
-    print(x._grad, y._grad)
-
-    a.backward()
-    print(x._grad, y._grad)
-    
-    a.reset()
-    announce("Reset")
-
-    print(x._grad, y._grad)
-    a = ((x * y) ** 2)
-    print(x._grad, y._grad)
-
-    a.backward()
-    print(x._grad, y._grad)
-
-    announce("c^2 + c, c:=4")
-    c = Element(4)
-    q = c ** 2 + c
-
-    q._grad = 1
-    q.backward()
-
-    print(c._grad)
+    announce("Bug: Gradient is different here.")
+    x1 = Element(2)
+    y1 = x1 * x1 # y1 = x1^2
+    z1 = y1 * y1 # z1 = (x1^2)^2
+    z1.backward()
+    print(x1)
