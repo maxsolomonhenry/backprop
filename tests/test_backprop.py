@@ -115,6 +115,147 @@ def run_tests():
                  lambda: z11, [x11], [32]):
         passed += 1
     
+    # EDGE CASE TESTS
+    print(f"\n{'=' * 20} EDGE CASES {'=' * 20}")
+    
+    # Test 12: Operations with zero
+    x12 = Element(5)
+    total += 1
+    if test_case("Zero multiplication: f(x) = x * 0", 
+                 lambda: x12 * 0, [x12], [0]):
+        passed += 1
+    
+    # Test 13: Zero division (dividing by variable that equals zero would be problematic, so test 0/x)
+    x13 = Element(3)
+    total += 1
+    if test_case("Zero division: f(x) = 0 / x", 
+                 lambda: 0 / x13, [x13], [0]):
+        passed += 1
+    
+    # Test 14: Power with zero exponent - d/dx(x^0) = 0
+    x14 = Element(7)
+    total += 1
+    if test_case("Zero exponent: f(x) = x^0", 
+                 lambda: x14 ** 0, [x14], [0]):
+        passed += 1
+    
+    # Test 15: Power with zero base - d/dx(0^x) = 0 (for x > 0)
+    x15 = Element(2)
+    total += 1
+    if test_case("Zero base: f(x) = 0^x", 
+                 lambda: 0 ** x15, [x15], [0]):
+        passed += 1
+    
+    # Test 16: Operations with one
+    x16 = Element(4)
+    total += 1
+    if test_case("One multiplication: f(x) = x * 1", 
+                 lambda: x16 * 1, [x16], [1]):
+        passed += 1
+    
+    # Test 17: Division by one
+    x17 = Element(6)
+    total += 1
+    if test_case("Division by one: f(x) = x / 1", 
+                 lambda: x17 / 1, [x17], [1]):
+        passed += 1
+    
+    # Test 18: One to variable power - d/dx(1^x) = 0
+    x18 = Element(3)
+    total += 1
+    if test_case("One to power: f(x) = 1^x", 
+                 lambda: 1 ** x18, [x18], [0]):
+        passed += 1
+    
+    # Test 19: Diamond graph - variable feeds into multiple paths that reconverge
+    x19 = Element(2)
+    a19 = x19 + 1  # a = x + 1
+    b19 = x19 * 2  # b = 2x  
+    c19 = a19 * b19  # c = (x + 1)(2x) = 2x² + 2x
+    total += 1
+    # dc/dx = 4x + 2 = 4(2) + 2 = 10
+    if test_case("Diamond graph: f(x) = (x+1)(2x)", 
+                 lambda: c19, [x19], [10]):
+        passed += 1
+    
+    # Test 20: Very deep nesting
+    x20 = Element(2)
+    result20 = ((x20 + 1) * 2 - 1) ** 2
+    total += 1
+    # f(x) = ((x+1)*2-1)² = (2x+2-1)² = (2x+1)²
+    # df/dx = 2(2x+1)*2 = 4(2x+1) = 4(5) = 20
+    if test_case("Deep nesting: f(x) = ((x+1)*2-1)²", 
+                 lambda: result20, [x20], [20]):
+        passed += 1
+    
+    # Test 21: Wide expression with many variables
+    vars21 = [Element(i) for i in range(1, 6)]  # x1=1, x2=2, x3=3, x4=4, x5=5
+    result21 = vars21[0] + vars21[1] + vars21[2] + vars21[3] + vars21[4]
+    total += 1
+    # f(x1,x2,x3,x4,x5) = x1+x2+x3+x4+x5, all gradients = 1
+    if test_case("Wide sum: f(x1,x2,x3,x4,x5) = x1+x2+x3+x4+x5", 
+                 lambda: result21, vars21, [1, 1, 1, 1, 1]):
+        passed += 1
+    
+    # Test 22: Complex sharing pattern
+    x22, y22 = Element(2), Element(3)
+    a22 = x22 * y22     # a = xy = 6
+    b22 = y22 * x22     # b = yx = 6 (same as a, but different path)
+    c22 = a22 + b22     # c = xy + yx = 2xy
+    total += 1
+    # dc/dx = 2y = 6, dc/dy = 2x = 4
+    if test_case("Complex sharing: f(x,y) = xy + yx", 
+                 lambda: c22, [x22, y22], [6, 4]):
+        passed += 1
+    
+    # Test 23: Triple sharing - same variable used in three paths
+    x23 = Element(2)
+    a23 = x23 ** 2      # a = x²
+    b23 = x23 ** 3      # b = x³  
+    c23 = x23 ** 4      # c = x⁴
+    result23 = a23 + b23 + c23  # f = x² + x³ + x⁴
+    total += 1
+    # df/dx = 2x + 3x² + 4x³ = 2(2) + 3(4) + 4(8) = 4 + 12 + 32 = 48
+    if test_case("Triple sharing: f(x) = x² + x³ + x⁴", 
+                 lambda: result23, [x23], [48]):
+        passed += 1
+    
+    # Test 24: Negative numbers edge cases
+    x24 = Element(-3)
+    total += 1
+    if test_case("Negative cubic: f(x) = x³", 
+                 lambda: x24 ** 3, [x24], [27]):  # d/dx(x³) = 3x² = 3*9 = 27
+        passed += 1
+    
+    # Test 25: Very small numbers (numerical stability)
+    x25 = Element(1e-10)
+    total += 1
+    if test_case("Small numbers: f(x) = x²", 
+                 lambda: x25 ** 2, [x25], [2e-10]):
+        passed += 1
+    
+    # Test 26: Nested sharing - shared intermediate results
+    x26 = Element(2)
+    shared26 = x26 * x26    # shared = x²
+    left26 = shared26 + 1   # left = x² + 1
+    right26 = shared26 * 2  # right = 2x²
+    result26 = left26 * right26  # result = (x² + 1)(2x²)
+    total += 1
+    # f = (x² + 1)(2x²) = 2x⁴ + 2x²
+    # df/dx = 8x³ + 4x = 8(8) + 4(2) = 64 + 8 = 72
+    if test_case("Nested sharing: f(x) = (x² + 1)(2x²)", 
+                 lambda: result26, [x26], [72]):
+        passed += 1
+    
+    # Test 27: Chain of operations all using same variable
+    x27 = Element(2)
+    total += 1
+    # f = x + x² + x³ + x⁴ + x⁵
+    # df/dx = 1 + 2x + 3x² + 4x³ + 5x⁴ = 1 + 4 + 12 + 32 + 80 = 129
+    if test_case("Long chain: f(x) = x + x² + x³ + x⁴ + x⁵", 
+                 lambda: x27 + x27**2 + x27**3 + x27**4 + x27**5, [x27], [129]):
+        passed += 1
+    
     print(f"\n{'=' * 50}")
     print(f"Test Results: {passed}/{total} passed")
     print(f"Success rate: {100 * passed / total:.1f}%")

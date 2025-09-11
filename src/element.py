@@ -51,7 +51,7 @@ class Element:
         result._right = other
 
         result._dleft = self._get_value(other) * self._value ** (self._get_value(other) - 1)
-        result._dright = result._value * np.log(self._value)
+        result._dright = 0 if self._value == 0 else result._value * np.log(self._value)
         return result
     
     def __radd__(self, other) -> Element:
@@ -91,7 +91,7 @@ class Element:
         result._left = other
         result._right = self
 
-        result._dright = result._value * np.log(other)
+        result._dright = 0 if result._value == 0 else result._value * np.log(other)
         return result
     
     def __pos__(self) -> Element:
