@@ -118,14 +118,15 @@ class Element:
 
         if self not in node_order:
             node_order.append(self)
-        return node_order
 
     def backward(self):
 
         self.reset()
         self._grad = 1
 
-        node_order = self._traverse()
+        node_order = []
+        self._traverse(node_order)
+        
         for node in reversed(node_order):
             if isinstance(node._left, Element):
                 node._left._grad += node._dleft * node._grad
