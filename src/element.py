@@ -116,23 +116,30 @@ class Element:
     def _get_value(self, other):
         return other._value if isinstance(other, Element) else other
     
-    def backward(self, is_root=True):
-
-        if is_root:
-            self._grad = 1
-            
-            if isinstance(self._left, Element):
-                self._left.reset()
-            if isinstance(self._right, Element):
-                self._right.reset()
+    def _traverse(self, node_order=None):
+        if node_order is None:
+            node_order = []
 
         if isinstance(self._left, Element):
-            self._left._grad += self._dleft * self._grad
-            self._left.backward(is_root=False)
-
+            self._left._traverse(node_order)
         if isinstance(self._right, Element):
-            self._right._grad += self._dright * self._grad
-            self._right.backward(is_root=False)
+            self._right._traverse(node_order)
+
+        if self not in node_order:
+            node_order.append(self)
+        return node_order
+
+    def backward(self):
+
+        self.reset()
+        self._grad = 1
+
+        node_order = self._traverse()
+        for node in reversed(node_order):
+            if isinstance(node._left, Element):
+                node._left._grad += node._dleft * node._grad
+            if isinstance(node._right, Element):
+                node._right._grad += node._dright * node._grad
 
     def reset(self):
         self._grad = 0
