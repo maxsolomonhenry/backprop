@@ -10,86 +10,66 @@ class Element:
         self._op = None
 
     def __add__(self, other) -> Element:
-        result = Element(self._value + self._get_value(other))
-        result._left = self
-        result._right = other
+        result = self._binary_result(other, self._value + self._get_value(other))
 
         result._dleft = 1
         result._dright = 1
         return result
     
     def __sub__(self, other) -> Element:
-        result = Element(self._value - self._get_value(other))
-        result._left = self
-        result._right = other
+        result = self._binary_result(other, self._value - self._get_value(other))
 
         result._dleft = 1
         result._dright = -1
         return result
     
     def __mul__(self, other) -> Element:
-        result = Element(self._value * self._get_value(other))
-        result._left = self
-        result._right = other
+        result = self._binary_result(other, self._value * self._get_value(other))
 
         result._dleft = self._get_value(other)
         result._dright = self._value
         return result
 
     def __truediv__(self, other) -> Element:
-        result = Element(self._value / self._get_value(other))
-        result._left = self
-        result._right = other
+        result = self._binary_result(other, self._value / self._get_value(other))
 
         result._dleft = 1 / self._get_value(other)
         result._dright = - self._value /  self._get_value(other) ** 2
         return result
     
     def __pow__(self, other) -> Element:
-        result = Element(self._value ** self._get_value(other))
-        result._left = self
-        result._right = other
+        result = self._binary_result(other, self._value ** self._get_value(other))
 
         result._dleft = self._get_value(other) * self._value ** (self._get_value(other) - 1)
         result._dright = 0 if self._value == 0 else result._value * np.log(self._value)
         return result
     
     def __radd__(self, other) -> Element:
-        result = Element(self._value + other)
-        result._left = other
-        result._right = self
+        result = self._binary_result(other, self._value + other, is_reverse=True)
 
         result._dright = 1
         return result
     
     def __rsub__(self, other) -> Element:
-        result = Element(other - self._value)
-        result._left = other
-        result._right = self
+        result = self._binary_result(other, other - self._value, is_reverse=True)
 
         result._dright = -1
         return result
     
     def __rmul__(self, other) -> Element:
-        result = Element(self._value * other)
-        result._left = other
-        result._right = self
+        result = self._binary_result(other, self._value * other, is_reverse=True)
 
         result._dright = other
         return result
     
     def __rtruediv__(self, other) -> Element:
-        result = Element(other / self._value)
-        result._left = other
-        result._right = self
+        result = self._binary_result(other, other / self._value, is_reverse=True)
 
         result._dright = - other /  self._value ** 2 
         return result
     
     def __rpow__(self, other) -> Element:
-        result = Element(other ** self._value)
-        result._left = other
-        result._right = self
+        result = self._binary_result(other, other ** self._value, is_reverse=True)
 
         result._dright = 0 if result._value == 0 else result._value * np.log(other)
         return result
@@ -115,6 +95,17 @@ class Element:
     
     def _get_value(self, other):
         return other._value if isinstance(other, Element) else other
+    
+    def _binary_result(self, other, value, is_reverse=False):
+        result = Element(value)
+
+        if is_reverse:
+            result._left = other
+            result._right = self
+        else:
+            result._left = self
+            result._right = other
+        return result
     
     def _traverse(self, node_order=None):
         if node_order is None:
