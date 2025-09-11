@@ -195,3 +195,6 @@ cython_debug/
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Local configuration files
+*.local
