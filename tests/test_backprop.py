@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-from element import Element
+from backprop.element import Element
+from backprop.activations import sigmoid
+import numpy as np
 
 def test_case(name, computation, variables, expected_grads, tolerance=1e-6):
     """Test a single case and report results"""
@@ -252,10 +254,76 @@ def run_tests():
     total += 1
     # f = x + x² + x³ + x⁴ + x⁵
     # df/dx = 1 + 2x + 3x² + 4x³ + 5x⁴ = 1 + 4 + 12 + 32 + 80 = 129
-    if test_case("Long chain: f(x) = x + x² + x³ + x⁴ + x⁵", 
+    if test_case("Long chain: f(x) = x + x² + x³ + x⁴ + x⁵",
                  lambda: x27 + x27**2 + x27**3 + x27**4 + x27**5, [x27], [129]):
         passed += 1
-    
+
+    # SIGMOID ACTIVATION TESTS
+    print(f"\n{'=' * 20} SIGMOID TESTS {'=' * 20}")
+
+    # Test 28: Basic sigmoid - σ'(x) = σ(x)(1-σ(x))
+    x28 = Element(0)
+    total += 1
+    # σ(0) = 0.5, σ'(0) = 0.5 * 0.5 = 0.25
+    if test_case("Sigmoid at zero: f(x) = σ(x)",
+                 lambda: sigmoid(x28), [x28], [0.25]):
+        passed += 1
+
+    # Test 29: Sigmoid with positive value
+    x29 = Element(2)
+    sig_val = 1 / (1 + np.exp(-2))  # σ(2) ≈ 0.8808
+    expected_grad = sig_val * (1 - sig_val)  # ≈ 0.1050
+    total += 1
+    if test_case("Sigmoid positive: f(x) = σ(x)",
+                 lambda: sigmoid(x29), [x29], [expected_grad]):
+        passed += 1
+
+    # Test 30: Sigmoid with negative value
+    x30 = Element(-2)
+    sig_val = 1 / (1 + np.exp(2))  # σ(-2) ≈ 0.1192
+    expected_grad = sig_val * (1 - sig_val)  # ≈ 0.1050
+    total += 1
+    if test_case("Sigmoid negative: f(x) = σ(x)",
+                 lambda: sigmoid(x30), [x30], [expected_grad]):
+        passed += 1
+
+    # Test 31: Sigmoid composition - d/dx(σ(x²)) = σ'(x²) * 2x
+    x31 = Element(1)
+    total += 1
+    # x² = 1, σ(1) ≈ 0.7311, σ'(1) ≈ 0.1966
+    # df/dx = σ'(1) * 2x = 0.1966 * 2 ≈ 0.3932
+    sig_val = 1 / (1 + np.exp(-1))
+    expected_grad = sig_val * (1 - sig_val) * 2 * 1
+    if test_case("Sigmoid composition: f(x) = σ(x²)",
+                 lambda: sigmoid(x31 ** 2), [x31], [expected_grad]):
+        passed += 1
+
+    # Test 32: Multiple sigmoids - d/dx(σ(x) + σ(2x))
+    x32 = Element(1)
+    total += 1
+    # For σ(x): σ(1) ≈ 0.7311, σ'(1) ≈ 0.1966
+    # For σ(2x): σ(2) ≈ 0.8808, σ'(2) ≈ 0.1050, chain rule: * 2 = 0.2100
+    sig1 = 1 / (1 + np.exp(-1))
+    grad1 = sig1 * (1 - sig1)
+    sig2 = 1 / (1 + np.exp(-2))
+    grad2 = sig2 * (1 - sig2) * 2
+    expected_grad = grad1 + grad2
+    if test_case("Double sigmoid: f(x) = σ(x) + σ(2x)",
+                 lambda: sigmoid(x32) + sigmoid(2 * x32), [x32], [expected_grad]):
+        passed += 1
+
+    # Test 33: Sigmoid with multiplication - d/dx(x * σ(x))
+    x33 = Element(2)
+    total += 1
+    # f(x) = x * σ(x)
+    # df/dx = σ(x) + x * σ'(x)
+    sig_val = 1 / (1 + np.exp(-2))
+    sig_deriv = sig_val * (1 - sig_val)
+    expected_grad = sig_val + 2 * sig_deriv
+    if test_case("Sigmoid product: f(x) = x * σ(x)",
+                 lambda: x33 * sigmoid(x33), [x33], [expected_grad]):
+        passed += 1
+
     print(f"\n{'=' * 50}")
     print(f"Test Results: {passed}/{total} passed")
     print(f"Success rate: {100 * passed / total:.1f}%")
