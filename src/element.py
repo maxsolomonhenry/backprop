@@ -1,111 +1,69 @@
 from __future__ import annotations
 import numpy as np
 
+
+def _val(obj):
+    return obj._value if isinstance(obj, Element) else obj
+
 class Element:
-    def __init__(self, value):
+    _op = 'None'
+    def __init__(self, value, left=None, right=None):
         self._value = value
+        self._left = self._ensure_element(left)
+        self._right = self._ensure_element(right)
+
         self._grad = 0
-        self._left = None
-        self._right = None
-        self._op = None
+
+    @staticmethod
+    def _ensure_element(obj):
+        if obj is None:
+            return obj
+        return obj if isinstance(obj, Element) else Element(obj)
+
+    def _grad_fn(self):
+        pass
 
     def __add__(self, other) -> Element:
-        result = self._binary_result(other, self._value + self._get_value(other))
-
-        result._dleft = 1
-        result._dright = 1
-        return result
-    
+        return AddResult(self, other)
+        
     def __sub__(self, other) -> Element:
-        result = self._binary_result(other, self._value - self._get_value(other))
-
-        result._dleft = 1
-        result._dright = -1
-        return result
+        return SubtractResult(self, other)
     
     def __mul__(self, other) -> Element:
-        result = self._binary_result(other, self._value * self._get_value(other))
-
-        result._dleft = self._get_value(other)
-        result._dright = self._value
-        return result
+        return MultiplyResult(self, other)
 
     def __truediv__(self, other) -> Element:
-        result = self._binary_result(other, self._value / self._get_value(other))
-
-        result._dleft = 1 / self._get_value(other)
-        result._dright = - self._value /  self._get_value(other) ** 2
-        return result
+        return DivideResult(self, other)
     
     def __pow__(self, other) -> Element:
-        result = self._binary_result(other, self._value ** self._get_value(other))
-
-        result._dleft = self._get_value(other) * self._value ** (self._get_value(other) - 1)
-        result._dright = 0 if self._value == 0 else result._value * np.log(self._value)
-        return result
+        return PowerResult(self, other)
     
     def __radd__(self, other) -> Element:
-        result = self._binary_result(other, self._value + other, is_reverse=True)
-
-        result._dright = 1
-        return result
+        return AddResult(other, self)
     
     def __rsub__(self, other) -> Element:
-        result = self._binary_result(other, other - self._value, is_reverse=True)
-
-        result._dright = -1
-        return result
+        return SubtractResult(other, self)
     
     def __rmul__(self, other) -> Element:
-        result = self._binary_result(other, self._value * other, is_reverse=True)
-
-        result._dright = other
-        return result
+        return MultiplyResult(other, self)
     
     def __rtruediv__(self, other) -> Element:
-        result = self._binary_result(other, other / self._value, is_reverse=True)
-
-        result._dright = - other /  self._value ** 2 
-        return result
+        return DivideResult(other, self)
     
     def __rpow__(self, other) -> Element:
-        result = self._binary_result(other, other ** self._value, is_reverse=True)
-
-        result._dright = 0 if result._value == 0 else result._value * np.log(other)
-        return result
+        return PowerResult(other, self)
     
     def __pos__(self) -> Element:
         return self
     
     def __neg__(self) -> Element:
-        result = Element(-self._value)
-        result._left = self
-
-        result._dleft = -1
-        return result
+        return MultiplyResult(self, -1)
     
     def __abs__(self) -> Element:
-        result = Element(abs(self._value))
-        result._left = self
-        result._dleft = np.sign(self._value)
-        return result
+        return AbsoluteResult(self)
 
     def __repr__(self) -> str:
-        return f"Element(value={self._value}, grad={self._grad})"
-    
-    def _get_value(self, other):
-        return other._value if isinstance(other, Element) else other
-    
-    def _binary_result(self, other, value, is_reverse=False):
-        result = Element(value)
-
-        if is_reverse:
-            result._left = other
-            result._right = self
-        else:
-            result._left = self
-            result._right = other
-        return result
+        return f"Element(value={self._value}, grad={self._grad}, op={self._op})"
     
     def _traverse(self, node_order=None):
         if node_order is None:
@@ -120,18 +78,13 @@ class Element:
             node_order.append(self)
 
     def backward(self):
-
-        self.reset()
         self._grad = 1
 
         node_order = []
         self._traverse(node_order)
         
         for node in reversed(node_order):
-            if isinstance(node._left, Element):
-                node._left._grad += node._dleft * node._grad
-            if isinstance(node._right, Element):
-                node._right._grad += node._dright * node._grad
+            node._grad_fn()
 
     def reset(self):
         self._grad = 0
@@ -141,3 +94,61 @@ class Element:
 
         if isinstance(self._right, Element):
             self._right.reset()
+
+
+class AddResult(Element):
+    _op = '+'
+    def __init__(self, left, right):
+        super().__init__(_val(left) + _val(right), left, right)
+
+    def _grad_fn(self):
+        self._left._grad += self._grad
+        self._right._grad += self._grad
+
+
+class SubtractResult(Element):
+    _op = '-'
+    def __init__(self, left, right):
+        super().__init__(_val(left) - _val(right), left, right)
+
+    def _grad_fn(self):
+        self._left._grad += self._grad
+        self._right._grad -= self._grad
+
+
+class MultiplyResult(Element):
+    _op = 'x'
+    def __init__(self, left, right):
+        super().__init__(_val(left) * _val(right), left, right)
+
+    def _grad_fn(self):
+        self._left._grad += self._right._value * self._grad
+        self._right._grad += self._left._value * self._grad
+
+
+class DivideResult(Element):
+    _op = '/'
+    def __init__(self, left, right):
+        super().__init__(_val(left) / _val(right), left, right)
+
+    def _grad_fn(self):
+        self._left._grad += 1.0 / self._right._value * self._grad
+        self._right._grad -= self._left._value / self._right._value ** 2 * self._grad
+
+
+class PowerResult(Element):
+    _op = '^'
+    def __init__(self, left, right):
+        super().__init__(_val(left) ** _val(right), left, right)
+
+    def _grad_fn(self):
+        self._left._grad += self._right._value * self._left._value ** (self._right._value - 1) * self._grad
+        self._right._grad += (0 if self._left._value == 0 else self._value * np.log(self._left._value)) * self._grad
+
+class AbsoluteResult(Element):
+    _op = '| |'
+    def __init__(self, left):
+        super().__init__(np.abs(_val(left)), left)
+
+    def _grad_fn(self):
+        self._left._grad += np.sign(self._left._value) * self._grad

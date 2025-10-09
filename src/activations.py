@@ -1,13 +1,17 @@
 from backprop.element import Element
 import numpy as np
 
-def sigmoid(x : Element) -> Element:
-    value = _sigmoid(x._value)
-    result = Element(value=value)
-    result._left = x
+class SigmoidResult(Element):
+    _op = 'σ'
+    def __init__(self, left):
+        super().__init__(self._sigmoid(left._value), left)
 
-    result._dleft = _sigmoid(x._value) * (1.0 - _sigmoid(x._value))
-    return result
+    def _grad_fn(self):
+        self._left._grad += (self._value * (1.0 - self._value)) * self._grad
 
-def _sigmoid(x):
-    return 1.0 / (1.0 + np.exp(-x))
+    @staticmethod
+    def _sigmoid(x):
+        return 1.0 / (1.0 + np.exp(-x))
+    
+def sigmoid(x):
+    return SigmoidResult(x)
