@@ -1,6 +1,6 @@
 from __future__ import annotations
 import numpy as np
-
+import copy
 
 def _val(obj):
     return obj._value if isinstance(obj, Element) else obj
@@ -22,7 +22,10 @@ class Element:
 
     @property
     def T(self):
-        return Element(self._value.T)
+        result = copy.copy(self)
+        result._value = result._value.T
+        result._grad = result._grad.T
+        return result
 
     def _grad_fn(self):
         pass
