@@ -8,17 +8,21 @@ def _val(obj):
 class Element:
     _op = 'None'
     def __init__(self, value, left=None, right=None):
-        self._value = value
+        self._value = np.atleast_2d(value).astype(float)
         self._left = self._ensure_element(left)
         self._right = self._ensure_element(right)
 
-        self._grad = 0
+        self._grad = np.zeros_like(self._value)
 
     @staticmethod
     def _ensure_element(obj):
         if obj is None:
             return obj
         return obj if isinstance(obj, Element) else Element(obj)
+
+    @property
+    def T(self):
+        return Element(self._value.T)
 
     def _grad_fn(self):
         pass
@@ -38,6 +42,9 @@ class Element:
     def __pow__(self, other) -> Element:
         return PowerResult(self, other)
     
+    def __matmul__(self, other) -> Element:
+        return MatMulResult(self, other)
+    
     def __radd__(self, other) -> Element:
         return AddResult(other, self)
     
@@ -52,6 +59,9 @@ class Element:
     
     def __rpow__(self, other) -> Element:
         return PowerResult(other, self)
+    
+    def __rmatmul__(self, other) -> Element:
+        return MatMulResult(other, self)
     
     def __pos__(self) -> Element:
         return self
@@ -78,7 +88,11 @@ class Element:
             node_order.append(self)
 
     def backward(self):
-        self._grad = 1
+
+        # Only calculate from scalar values.
+        assert self._value.shape == (1, 1)
+
+        self._grad = np.atleast_2d(1.0).astype(float)
 
         node_order = []
         self._traverse(node_order)
@@ -87,7 +101,7 @@ class Element:
             node._grad_fn()
 
     def reset(self):
-        self._grad = 0
+        self._grad *= 0
 
         if isinstance(self._left, Element):
             self._left.reset()
@@ -124,6 +138,16 @@ class MultiplyResult(Element):
     def _grad_fn(self):
         self._left._grad += self._right._value * self._grad
         self._right._grad += self._left._value * self._grad
+
+
+class MatMulResult(Element):
+    _op = '@'
+    def __init__(self, left, right):
+        super().__init__(_val(left) @ _val(right), left, right)
+
+    def _grad_fn(self):
+        self._left._grad +=  self._grad @ self._right._value.T
+        self._right._grad += self._left._value.T @ self._grad
 
 
 class DivideResult(Element):
