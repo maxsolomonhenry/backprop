@@ -22,10 +22,7 @@ class Element:
 
     @property
     def T(self):
-        result = copy.copy(self)
-        result._value = result._value.T
-        result._grad = result._grad.T
-        return result
+        return TransposeResult(self)
 
     def _grad_fn(self):
         pass
@@ -111,6 +108,15 @@ class Element:
 
         if isinstance(self._right, Element):
             self._right.reset()
+
+
+class TransposeResult(Element):
+    _op = 'T'
+    def __init__(self, left):
+        super().__init__(_val(left).T, left)
+
+    def _grad_fn(self):
+        self._left._grad += self._grad.T
 
 
 class AddResult(Element):
