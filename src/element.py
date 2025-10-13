@@ -176,7 +176,13 @@ class PowerResult(Element):
 
     def _grad_fn(self):
         self._left._grad += self._right._value * self._left._value ** (self._right._value - 1) * self._grad
-        self._right._grad += (0 if self._left._value == 0 else self._value * np.log(self._left._value)) * self._grad
+
+        # Only process for non-zero values, otherwise local gradient := 0.
+        idx_nonzero = (self._left._value != 0)
+        d_right = np.zeros_like(self._right._grad)
+        d_right[idx_nonzero] = self._value[idx_nonzero] * np.log(self._left._value[idx_nonzero])
+
+        self._right._grad += d_right * self._grad
 
 class AbsoluteResult(Element):
     _op = '| |'
