@@ -2,6 +2,7 @@
 
 from backprop.element import Element
 from backprop.activations import sigmoid
+from backprop.functions import log
 import numpy as np
 
 def test_case(name, computation, variables, expected_grads, tolerance=1e-6):
@@ -842,6 +843,165 @@ def run_tests():
     print(f"  Expected:\n{expected_x}")
     print(f"  y grad:\n{y69._grad}")
     print(f"  Expected:\n{expected_y}")
+    print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
+    if passed_test:
+        passed += 1
+
+    # LOGARITHM TESTS
+    print(f"\n{'=' * 20} LOGARITHM TESTS {'=' * 20}")
+
+    # Test 70: Basic log - d/dx(ln(x)) = 1/x
+    x70 = Element(2)
+    total += 1
+    # ln(2) ≈ 0.693, d/dx = 1/2 = 0.5
+    if test_case("Basic log: f(x) = ln(x)",
+                 lambda: log(x70), [x70], [0.5]):
+        passed += 1
+
+    # Test 71: Log of larger value
+    x71 = Element(10)
+    total += 1
+    # ln(10) ≈ 2.303, d/dx = 1/10 = 0.1
+    if test_case("Log of 10: f(x) = ln(x)",
+                 lambda: log(x71), [x71], [0.1]):
+        passed += 1
+
+    # Test 72: Log of e
+    x72 = Element(np.e)
+    total += 1
+    # ln(e) = 1, d/dx = 1/e ≈ 0.3679
+    expected_grad = 1.0 / np.e
+    if test_case("Log of e: f(x) = ln(e)",
+                 lambda: log(x72), [x72], [expected_grad]):
+        passed += 1
+
+    # Test 73: Log of 1
+    x73 = Element(1)
+    total += 1
+    # ln(1) = 0, d/dx = 1/1 = 1
+    if test_case("Log of 1: f(x) = ln(1)",
+                 lambda: log(x73), [x73], [1.0]):
+        passed += 1
+
+    # Test 74: Log composition - d/dx(ln(x²)) = 1/x² * 2x = 2/x
+    x74 = Element(3)
+    total += 1
+    # d/dx = 2/3 ≈ 0.6667
+    if test_case("Log composition: f(x) = ln(x²)",
+                 lambda: log(x74 ** 2), [x74], [2.0 / 3.0]):
+        passed += 1
+
+    # Test 75: Log with multiplication - d/dx(x * ln(x)) = ln(x) + 1
+    x75 = Element(2)
+    total += 1
+    # f(x) = x * ln(x)
+    # df/dx = ln(x) + x * (1/x) = ln(x) + 1 = ln(2) + 1 ≈ 1.6931
+    expected_grad = np.log(2) + 1
+    if test_case("Log product: f(x) = x * ln(x)",
+                 lambda: x75 * log(x75), [x75], [expected_grad]):
+        passed += 1
+
+    # Test 76: Log with addition - d/dx(ln(x) + x) = 1/x + 1
+    x76 = Element(4)
+    total += 1
+    # df/dx = 1/4 + 1 = 1.25
+    if test_case("Log addition: f(x) = ln(x) + x",
+                 lambda: log(x76) + x76, [x76], [1.25]):
+        passed += 1
+
+    # Test 77: Log of product - d/dx(ln(xy)) = 1/(xy) * y = 1/x
+    x77, y77 = Element(2), Element(3)
+    total += 1
+    # f(x, y) = ln(xy)
+    # df/dx = 1/(xy) * y = 1/x = 0.5
+    # df/dy = 1/(xy) * x = 1/y ≈ 0.3333
+    if test_case("Log of product: f(x,y) = ln(xy)",
+                 lambda: log(x77 * y77), [x77, y77], [0.5, 1.0/3.0]):
+        passed += 1
+
+    # Test 78: Nested log composition - d/dx(ln(x+1))
+    x78 = Element(3)
+    total += 1
+    # f(x) = ln(x + 1) = ln(4)
+    # df/dx = 1/(x+1) = 1/4 = 0.25
+    if test_case("Nested log: f(x) = ln(x+1)",
+                 lambda: log(x78 + 1), [x78], [0.25]):
+        passed += 1
+
+    # Test 79: Log with division - d/dx(ln(x/y))
+    x79, y79 = Element(8), Element(2)
+    total += 1
+    # f(x, y) = ln(x/y) = ln(4)
+    # df/dx = 1/(x/y) * (1/y) = y/(xy) = 1/x = 1/8 = 0.125
+    # df/dy = 1/(x/y) * (-x/y²) = -y/(xy) * (1/y) = -1/y = -0.5
+    if test_case("Log of division: f(x,y) = ln(x/y)",
+                 lambda: log(x79 / y79), [x79, y79], [0.125, -0.5]):
+        passed += 1
+
+    # Test 80: Log of power - d/dx(ln(x³)) = 3/x
+    x80 = Element(2)
+    total += 1
+    # f(x) = ln(x³)
+    # df/dx = 1/x³ * 3x² = 3/x = 1.5
+    if test_case("Log of power: f(x) = ln(x³)",
+                 lambda: log(x80 ** 3), [x80], [1.5]):
+        passed += 1
+
+    # Test 81: Log chain rule with deep nesting - d/dx(ln((x+2)²))
+    x81 = Element(2)
+    total += 1
+    # f(x) = ln((x+2)²) = ln(16)
+    # df/dx = 1/(x+2)² * 2(x+2) = 2/(x+2) = 2/4 = 0.5
+    if test_case("Deep log chain: f(x) = ln((x+2)²)",
+                 lambda: log((x81 + 2) ** 2), [x81], [0.5]):
+        passed += 1
+
+    # Test 82: Multiple logs - d/dx(ln(x) + ln(y))
+    x82, y82 = Element(2), Element(5)
+    total += 1
+    # f(x, y) = ln(x) + ln(y)
+    # df/dx = 1/x = 0.5
+    # df/dy = 1/y = 0.2
+    if test_case("Sum of logs: f(x,y) = ln(x) + ln(y)",
+                 lambda: log(x82) + log(y82), [x82, y82], [0.5, 0.2]):
+        passed += 1
+
+    # Test 83: Log of fraction with variable numerator and denominator
+    x83 = Element(6)
+    total += 1
+    # f(x) = ln(x / (x+1))
+    # df/dx = 1/(x/(x+1)) * d/dx(x/(x+1))
+    #       = (x+1)/x * (1*(x+1) - x*1)/(x+1)²
+    #       = (x+1)/x * 1/(x+1)²
+    #       = 1/(x(x+1))
+    #       = 1/(6*7) = 1/42 ≈ 0.0238
+    expected_grad = 1.0 / (6.0 * 7.0)
+    if test_case("Log of ratio: f(x) = ln(x/(x+1))",
+                 lambda: log(x83 / (x83 + 1)), [x83], [expected_grad]):
+        passed += 1
+
+    # Test 84: Small value log - testing numerical stability
+    x84 = Element(0.1)
+    total += 1
+    # ln(0.1) ≈ -2.303, d/dx = 1/0.1 = 10
+    if test_case("Log of small value: f(x) = ln(0.1)",
+                 lambda: log(x84), [x84], [10.0]):
+        passed += 1
+
+    # Test 85: Vector log (element-wise)
+    x85 = Element([[1, 2], [3, 4]])
+    z85 = log(x85)
+    # Manually propagate gradients
+    z85._grad = np.array([[1., 1.], [1., 1.]])
+    z85._grad_fn()
+    total += 1
+    # z = [[ln(1), ln(2)], [ln(3), ln(4)]]
+    # dL/dx = 1/x = [[1, 0.5], [0.333, 0.25]]
+    expected_x = 1.0 / np.array([[1., 2.], [3., 4.]])
+    passed_test = np.allclose(x85._grad, expected_x)
+    print(f"\n=== Vector log (element-wise) ===")
+    print(f"  x grad:\n{x85._grad}")
+    print(f"  Expected:\n{expected_x}")
     print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
     if passed_test:
         passed += 1
