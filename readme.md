@@ -38,8 +38,8 @@ calculate `dL/dA := dL/dAX * dAX/dA`).
 - An element-wise operation in the forward pass becomes an element-wise operation in the backward pass.
 
 ## TODO
--[ ] `sum()` and `mean()` functions to get to a scalar more easily.
--[ ] simple scalar mults, adds, divisions, etc that aren't tracked in backprop
--[ ] finish vectorizing operation nodes in `Element.py`
--[ ] expand to batches
--[ ] train POC (MNIST)
+- [ ] `sum()` and `mean()` functions to get to a scalar more easily.
+- [ ] simple scalar mults, adds, divisions, etc that aren't tracked in backprop
+- [ ] finish vectorizing operation nodes in `Element.py`
+- [ ] expand to batches
+- [ ] train POC (MNIST)
