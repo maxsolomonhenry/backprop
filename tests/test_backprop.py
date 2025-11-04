@@ -2,30 +2,43 @@
 
 from backprop.element import Element
 from backprop.activations import sigmoid
+from backprop.functions import log
 import numpy as np
 
 def test_case(name, computation, variables, expected_grads, tolerance=1e-6):
     """Test a single case and report results"""
     print(f"\n=== {name} ===")
-    
+
     # Reset all variables
     for var in variables:
-        var._grad = 0
-    
+        var._grad = np.zeros_like(var._value)
+
     # Run computation and backward pass
     result = computation()
     result.backward()
-    
+
     # Check results
     all_passed = True
     for i, (var, expected) in enumerate(zip(variables, expected_grads)):
         actual = var._grad
-        passed = abs(actual - expected) < tolerance
-        status = "✓" if passed else "✗"
-        print(f"  Var {i+1}: expected={expected:.6f}, actual={actual:.6f} {status}")
+        # Handle both scalar and array grads
+        if isinstance(actual, np.ndarray) and actual.size == 1:
+            actual_val = actual.item()
+            expected_val = expected if not isinstance(expected, np.ndarray) else expected.item()
+            passed = abs(actual_val - expected_val) < tolerance
+            status = "✓" if passed else "✗"
+            print(f"  Var {i+1}: expected={expected_val:.6f}, actual={actual_val:.6f} {status}")
+        else:
+            # For arrays, use np.allclose
+            passed = np.allclose(actual, expected, atol=tolerance)
+            status = "✓" if passed else "✗"
+            print(f"  Var {i+1}: {status}")
+            if not passed:
+                print(f"    Expected: {expected}")
+                print(f"    Actual: {actual}")
         if not passed:
             all_passed = False
-    
+
     print(f"  Result: {'PASS' if all_passed else 'FAIL'}")
     return all_passed
 
@@ -487,14 +500,14 @@ def run_tests():
     x53 = Element(3)
     y53 = x53 ** 2
     y53.backward()
-    stored_grad = x53._grad
+    stored_grad = x53._grad.item()
     x53.reset()
     total += 1
     # After reset, gradient should be 0
-    passed_test = (x53._grad == 0 and stored_grad == 6)
+    passed_test = (x53._grad.item() == 0 and stored_grad == 6)
     print(f"\n=== Reset clears gradients ===")
     print(f"  Gradient before reset: {stored_grad:.6f} (expected 6.000000) {'✓' if stored_grad == 6 else '✗'}")
-    print(f"  Gradient after reset: {x53._grad:.6f} (expected 0.000000) {'✓' if x53._grad == 0 else '✗'}")
+    print(f"  Gradient after reset: {x53._grad.item():.6f} (expected 0.000000) {'✓' if x53._grad.item() == 0 else '✗'}")
     print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
     if passed_test:
         passed += 1
@@ -503,9 +516,9 @@ def run_tests():
     x54 = Element(2)
     y54 = x54 ** 2
     y54.backward()
-    first_grad = x54._grad
+    first_grad = x54._grad.item()
     y54.backward()  # Second call without reset
-    second_grad = x54._grad
+    second_grad = x54._grad.item()
     total += 1
     # First: grad = 4, Second: grad = 4 + 4 = 8 (accumulation)
     passed_test = (first_grad == 4 and second_grad == 8)
@@ -521,18 +534,18 @@ def run_tests():
     z55 = x55 * y55
     result55 = z55 ** 2
     result55.backward()
-    grad_x_before = x55._grad
-    grad_y_before = y55._grad
-    grad_z_before = z55._grad
+    grad_x_before = x55._grad.item()
+    grad_y_before = y55._grad.item()
+    grad_z_before = z55._grad.item()
     result55.reset()
     total += 1
     # All gradients should be 0 after reset
-    passed_test = (x55._grad == 0 and y55._grad == 0 and z55._grad == 0 and result55._grad == 0)
+    passed_test = (x55._grad.item() == 0 and y55._grad.item() == 0 and z55._grad.item() == 0 and result55._grad.item() == 0)
     print(f"\n=== Reset propagates through graph ===")
-    print(f"  x grad before: {grad_x_before:.6f}, after: {x55._grad:.6f} {'✓' if x55._grad == 0 else '✗'}")
-    print(f"  y grad before: {grad_y_before:.6f}, after: {y55._grad:.6f} {'✓' if y55._grad == 0 else '✗'}")
-    print(f"  z grad before: {grad_z_before:.6f}, after: {z55._grad:.6f} {'✓' if z55._grad == 0 else '✗'}")
-    print(f"  result grad before: 1.000000, after: {result55._grad:.6f} {'✓' if result55._grad == 0 else '✗'}")
+    print(f"  x grad before: {grad_x_before:.6f}, after: {x55._grad.item():.6f} {'✓' if x55._grad.item() == 0 else '✗'}")
+    print(f"  y grad before: {grad_y_before:.6f}, after: {y55._grad.item():.6f} {'✓' if y55._grad.item() == 0 else '✗'}")
+    print(f"  z grad before: {grad_z_before:.6f}, after: {z55._grad.item():.6f} {'✓' if z55._grad.item() == 0 else '✗'}")
+    print(f"  result grad before: 1.000000, after: {result55._grad.item():.6f} {'✓' if result55._grad.item() == 0 else '✗'}")
     print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
     if passed_test:
         passed += 1
@@ -547,9 +560,448 @@ def run_tests():
     z56.backward()
     total += 1
     # df/dx = 3x² = 3(16) = 48
-    passed_test = abs(x56._grad - 48) < 1e-6
+    passed_test = abs(x56._grad.item() - 48) < 1e-6
     print(f"\n=== Backward after reset ===")
-    print(f"  Gradient: {x56._grad:.6f} (expected 48.000000) {'✓' if passed_test else '✗'}")
+    print(f"  Gradient: {x56._grad.item():.6f} (expected 48.000000) {'✓' if passed_test else '✗'}")
+    print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
+    if passed_test:
+        passed += 1
+
+    # VECTOR OPERATION TESTS
+    print(f"\n{'=' * 20} VECTOR OPERATION TESTS {'=' * 20}")
+
+    # Test 57: Vector addition - element-wise
+    x57 = Element([[1, 2], [3, 4]])
+    y57 = Element([[5, 6], [7, 8]])
+    z57 = x57 + y57
+    # Create a scalar result by doing element-wise operations
+    result57 = Element(1) * z57._value[0, 0] + Element(1) * z57._value[0, 1] + Element(1) * z57._value[1, 0] + Element(1) * z57._value[1, 1]
+    # Manually construct gradient flow
+    x57._grad = np.array([[1, 1], [1, 1]])
+    y57._grad = np.array([[1, 1], [1, 1]])
+    total += 1
+    # z = [[6, 8], [10, 12]]
+    # For addition: dL/dx = dL/dz = [[1,1],[1,1]]
+    expected_val = np.array([[6., 8.], [10., 12.]])
+    passed_test = np.allclose(z57._value, expected_val)
+    print(f"\n=== Vector addition (forward pass) ===")
+    print(f"  z value:\n{z57._value}")
+    print(f"  Expected:\n{expected_val}")
+    print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
+    if passed_test:
+        passed += 1
+
+    # Test 58: Vector multiplication (element-wise) with backprop
+    x58 = Element([[2, 3]])
+    y58 = Element([[4, 5]])
+    z58 = x58 * y58
+    # Get single element for backward
+    result58 = z58._value[0, 0] + z58._value[0, 1]
+    result58_elem = Element(result58)
+    result58_elem._left = z58
+    result58_elem._grad = np.array([[1.]])
+    # Manually do backward
+    z58._grad = np.array([[1., 1.]])
+    z58._grad_fn()
+    total += 1
+    # z = [[8, 15]], sum = 23
+    # dL/dx = y * dL/dz = [[4, 5]]
+    # dL/dy = x * dL/dz = [[2, 3]]
+    expected_x = np.array([[4., 5.]])
+    expected_y = np.array([[2., 3.]])
+    passed_test = np.allclose(x58._grad, expected_x) and np.allclose(y58._grad, expected_y)
+    print(f"\n=== Vector element-wise multiplication ===")
+    print(f"  x grad:\n{x58._grad}")
+    print(f"  Expected:\n{expected_x}")
+    print(f"  y grad:\n{y58._grad}")
+    print(f"  Expected:\n{expected_y}")
+    print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
+    if passed_test:
+        passed += 1
+
+    # Test 59: Matrix multiplication
+    x59 = Element([[1, 2], [3, 4]])
+    y59 = Element([[5, 6], [7, 8]])
+    z59 = x59 @ y59
+    # Manually propagate gradients
+    z59._grad = np.array([[1., 1.], [1., 1.]])
+    z59._grad_fn()
+    total += 1
+    # z = [[19, 22], [43, 50]]
+    # dL/dx = dL/dz @ y.T = [[1,1],[1,1]] @ [[5,7],[6,8]] = [[11,15],[11,15]]
+    # dL/dy = x.T @ dL/dz = [[1,3],[2,4]] @ [[1,1],[1,1]] = [[4,4],[6,6]]
+    expected_x = np.array([[11., 15.], [11., 15.]])
+    expected_y = np.array([[4., 4.], [6., 6.]])
+    passed_test = np.allclose(x59._grad, expected_x) and np.allclose(y59._grad, expected_y)
+    print(f"\n=== Matrix multiplication ===")
+    print(f"  x grad:\n{x59._grad}")
+    print(f"  Expected:\n{expected_x}")
+    print(f"  y grad:\n{y59._grad}")
+    print(f"  Expected:\n{expected_y}")
+    print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
+    if passed_test:
+        passed += 1
+
+    # Test 60: Transpose operation
+    x60 = Element([[1, 2, 3], [4, 5, 6]])
+    z60 = x60.T
+    # Manually propagate gradients
+    z60._grad = np.array([[1., 1.], [1., 1.], [1., 1.]])
+    z60._grad_fn()
+    total += 1
+    # z = [[1,4],[2,5],[3,6]]
+    # dL/dx = dL/dz.T = [[1,1,1],[1,1,1]]
+    expected_x = np.array([[1., 1., 1.], [1., 1., 1.]])
+    passed_test = np.allclose(x60._grad, expected_x)
+    print(f"\n=== Transpose operation ===")
+    print(f"  x grad:\n{x60._grad}")
+    print(f"  Expected:\n{expected_x}")
+    print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
+    if passed_test:
+        passed += 1
+
+    # Test 61: Vector subtraction
+    x61 = Element([[5, 6], [7, 8]])
+    y61 = Element([[1, 2], [3, 4]])
+    z61 = x61 - y61
+    # Manually propagate gradients
+    z61._grad = np.array([[1., 1.], [1., 1.]])
+    z61._grad_fn()
+    total += 1
+    # z = [[4, 4], [4, 4]]
+    # dL/dx = [[1, 1], [1, 1]], dL/dy = -[[1, 1], [1, 1]]
+    expected_x = np.array([[1., 1.], [1., 1.]])
+    expected_y = -np.array([[1., 1.], [1., 1.]])
+    passed_test = np.allclose(x61._grad, expected_x) and np.allclose(y61._grad, expected_y)
+    print(f"\n=== Vector subtraction ===")
+    print(f"  x grad:\n{x61._grad}")
+    print(f"  Expected:\n{expected_x}")
+    print(f"  y grad:\n{y61._grad}")
+    print(f"  Expected:\n{expected_y}")
+    print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
+    if passed_test:
+        passed += 1
+
+    # Test 62: Vector division
+    x62 = Element([[6, 8], [10, 12]])
+    y62 = Element([[2, 4], [5, 6]])
+    z62 = x62 / y62
+    # Manually propagate gradients
+    z62._grad = np.array([[1., 1.], [1., 1.]])
+    z62._grad_fn()
+    total += 1
+    # z = [[3, 2], [2, 2]]
+    # dL/dx = 1/y = [[0.5, 0.25], [0.2, 0.1667]]
+    # dL/dy = -x/y² = [[-1.5, -0.5], [-0.4, -0.3333]]
+    expected_x = 1.0 / np.array([[2., 4.], [5., 6.]])
+    expected_y = -np.array([[6., 8.], [10., 12.]]) / np.array([[2., 4.], [5., 6.]]) ** 2
+    passed_test = np.allclose(x62._grad, expected_x) and np.allclose(y62._grad, expected_y)
+    print(f"\n=== Vector division ===")
+    print(f"  x grad:\n{x62._grad}")
+    print(f"  Expected:\n{expected_x}")
+    print(f"  y grad:\n{y62._grad}")
+    print(f"  Expected:\n{expected_y}")
+    print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
+    if passed_test:
+        passed += 1
+
+    # Test 63: Vector power (element-wise)
+    x63 = Element([[2, 3], [4, 5]])
+    y63 = Element([[2, 2], [2, 2]])
+    z63 = x63 ** y63
+    # Manually propagate gradients
+    z63._grad = np.array([[1., 1.], [1., 1.]])
+    z63._grad_fn()
+    total += 1
+    # z = [[4, 9], [16, 25]]
+    # dL/dx = y * x^(y-1) = [[2*2^1, 2*3^1], [2*4^1, 2*5^1]] = [[4, 6], [8, 10]]
+    expected_x = 2 * np.array([[2., 3.], [4., 5.]])
+    passed_test = np.allclose(x63._grad, expected_x)
+    print(f"\n=== Vector power (element-wise) ===")
+    print(f"  x grad:\n{x63._grad}")
+    print(f"  Expected:\n{expected_x}")
+    print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
+    if passed_test:
+        passed += 1
+
+    # Test 64: Element-wise multiplication with constant
+    x64 = Element([[1, 2], [3, 4]])
+    scalar = Element([[3, 3], [3, 3]])
+    z64 = x64 * scalar
+    # Manually propagate gradients
+    z64._grad = np.array([[1., 1.], [1., 1.]])
+    z64._grad_fn()
+    total += 1
+    # z = [[3, 6], [9, 12]]
+    # dL/dx = scalar * dL/dz = [[3,3],[3,3]]
+    expected_x = np.array([[3., 3.], [3., 3.]])
+    passed_test = np.allclose(x64._grad, expected_x)
+    print(f"\n=== Element-wise multiplication with constant ===")
+    print(f"  x grad:\n{x64._grad}")
+    print(f"  Expected:\n{expected_x}")
+    print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
+    if passed_test:
+        passed += 1
+
+    # Test 65: Vector absolute value
+    x65 = Element([[-2, 3], [4, -5]])
+    z65 = abs(x65)
+    # Manually propagate gradients
+    z65._grad = np.array([[1., 1.], [1., 1.]])
+    z65._grad_fn()
+    total += 1
+    # z = [[2, 3], [4, 5]]
+    # dL/dx = sign(x) = [[-1, 1], [1, -1]]
+    expected_x = np.sign(np.array([[-2., 3.], [4., -5.]]))
+    passed_test = np.allclose(x65._grad, expected_x)
+    print(f"\n=== Vector absolute value ===")
+    print(f"  x grad:\n{x65._grad}")
+    print(f"  Expected:\n{expected_x}")
+    print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
+    if passed_test:
+        passed += 1
+
+    # Test 66: Vector negation (using subtraction instead)
+    x66 = Element([[1, 2], [3, 4]])
+    zero = Element([[0, 0], [0, 0]])
+    z66 = zero - x66
+    # Manually propagate gradients
+    z66._grad = np.array([[1., 1.], [1., 1.]])
+    z66._grad_fn()
+    total += 1
+    # z = [[-1, -2], [-3, -4]]
+    # dL/dx = -dL/dz = -[[1,1],[1,1]] = [[-1,-1],[-1,-1]]
+    expected_x = np.array([[-1., -1.], [-1., -1.]])
+    passed_test = np.allclose(x66._grad, expected_x)
+    print(f"\n=== Vector negation ===")
+    print(f"  x grad:\n{x66._grad}")
+    print(f"  Expected:\n{expected_x}")
+    print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
+    if passed_test:
+        passed += 1
+
+    # Test 67: Rectangular matrix multiplication
+    x67 = Element([[1, 2, 3], [4, 5, 6]])  # 2x3
+    y67 = Element([[1, 2], [3, 4], [5, 6]])  # 3x2
+    z67 = x67 @ y67  # 2x2
+    # Manually propagate gradients
+    z67._grad = np.array([[1., 1.], [1., 1.]])
+    z67._grad_fn()
+    total += 1
+    # z = [[22, 28], [49, 64]]
+    # dL/dx = dL/dz @ y.T = [[1,1],[1,1]] @ [[1,3,5],[2,4,6]] = [[3,7,11],[3,7,11]]
+    # dL/dy = x.T @ dL/dz = [[1,4],[2,5],[3,6]] @ [[1,1],[1,1]] = [[5,5],[7,7],[9,9]]
+    expected_x = np.array([[3., 7., 11.], [3., 7., 11.]])
+    expected_y = np.array([[5., 5.], [7., 7.], [9., 9.]])
+    passed_test = np.allclose(x67._grad, expected_x) and np.allclose(y67._grad, expected_y)
+    print(f"\n=== Rectangular matrix multiplication ===")
+    print(f"  x grad:\n{x67._grad}")
+    print(f"  Expected:\n{expected_x}")
+    print(f"  y grad:\n{y67._grad}")
+    print(f"  Expected:\n{expected_y}")
+    print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
+    if passed_test:
+        passed += 1
+
+    # Test 68: Vector with sigmoid
+    x68 = Element([[0, 1], [-1, 2]])
+    z68 = sigmoid(x68)
+    # Manually propagate gradients
+    z68._grad = np.array([[1., 1.], [1., 1.]])
+    z68._grad_fn()
+    total += 1
+    # For each element: grad = sigmoid(x) * (1 - sigmoid(x))
+    sig_vals = 1.0 / (1.0 + np.exp(-np.array([[0., 1.], [-1., 2.]])))
+    expected_x = sig_vals * (1 - sig_vals)
+    passed_test = np.allclose(x68._grad, expected_x)
+    print(f"\n=== Vector with sigmoid ===")
+    print(f"  x grad:\n{x68._grad}")
+    print(f"  Expected:\n{expected_x}")
+    print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
+    if passed_test:
+        passed += 1
+
+    # Test 69: Chain of matrix operations (matmul + transpose)
+    x69 = Element([[1, 2], [3, 4]])
+    y69 = Element([[2, 0], [0, 2]])
+    z69 = x69 @ y69
+    w69 = z69.T
+    # Manually propagate gradients backwards
+    w69._grad = np.array([[1., 1.], [1., 1.]])
+    w69._grad_fn()  # w = z.T, so dL/dz = dL/dw.T
+    z69._grad_fn()  # z = x @ y
+    total += 1
+    # z = [[2, 4], [6, 8]], z.T = [[2, 6], [4, 8]]
+    # dL/dz = dL/dw.T = [[1,1],[1,1]]
+    # dL/dx = dL/dz @ y.T = [[1,1],[1,1]] @ [[2,0],[0,2]] = [[2,2],[2,2]]
+    # dL/dy = x.T @ dL/dz = [[1,3],[2,4]] @ [[1,1],[1,1]] = [[4,4],[6,6]]
+    expected_x = np.array([[2., 2.], [2., 2.]])
+    expected_y = np.array([[4., 4.], [6., 6.]])
+    passed_test = np.allclose(x69._grad, expected_x) and np.allclose(y69._grad, expected_y)
+    print(f"\n=== Chain: matmul + transpose ===")
+    print(f"  x grad:\n{x69._grad}")
+    print(f"  Expected:\n{expected_x}")
+    print(f"  y grad:\n{y69._grad}")
+    print(f"  Expected:\n{expected_y}")
+    print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
+    if passed_test:
+        passed += 1
+
+    # LOGARITHM TESTS
+    print(f"\n{'=' * 20} LOGARITHM TESTS {'=' * 20}")
+
+    # Test 70: Basic log - d/dx(ln(x)) = 1/x
+    x70 = Element(2)
+    total += 1
+    # ln(2) ≈ 0.693, d/dx = 1/2 = 0.5
+    if test_case("Basic log: f(x) = ln(x)",
+                 lambda: log(x70), [x70], [0.5]):
+        passed += 1
+
+    # Test 71: Log of larger value
+    x71 = Element(10)
+    total += 1
+    # ln(10) ≈ 2.303, d/dx = 1/10 = 0.1
+    if test_case("Log of 10: f(x) = ln(x)",
+                 lambda: log(x71), [x71], [0.1]):
+        passed += 1
+
+    # Test 72: Log of e
+    x72 = Element(np.e)
+    total += 1
+    # ln(e) = 1, d/dx = 1/e ≈ 0.3679
+    expected_grad = 1.0 / np.e
+    if test_case("Log of e: f(x) = ln(e)",
+                 lambda: log(x72), [x72], [expected_grad]):
+        passed += 1
+
+    # Test 73: Log of 1
+    x73 = Element(1)
+    total += 1
+    # ln(1) = 0, d/dx = 1/1 = 1
+    if test_case("Log of 1: f(x) = ln(1)",
+                 lambda: log(x73), [x73], [1.0]):
+        passed += 1
+
+    # Test 74: Log composition - d/dx(ln(x²)) = 1/x² * 2x = 2/x
+    x74 = Element(3)
+    total += 1
+    # d/dx = 2/3 ≈ 0.6667
+    if test_case("Log composition: f(x) = ln(x²)",
+                 lambda: log(x74 ** 2), [x74], [2.0 / 3.0]):
+        passed += 1
+
+    # Test 75: Log with multiplication - d/dx(x * ln(x)) = ln(x) + 1
+    x75 = Element(2)
+    total += 1
+    # f(x) = x * ln(x)
+    # df/dx = ln(x) + x * (1/x) = ln(x) + 1 = ln(2) + 1 ≈ 1.6931
+    expected_grad = np.log(2) + 1
+    if test_case("Log product: f(x) = x * ln(x)",
+                 lambda: x75 * log(x75), [x75], [expected_grad]):
+        passed += 1
+
+    # Test 76: Log with addition - d/dx(ln(x) + x) = 1/x + 1
+    x76 = Element(4)
+    total += 1
+    # df/dx = 1/4 + 1 = 1.25
+    if test_case("Log addition: f(x) = ln(x) + x",
+                 lambda: log(x76) + x76, [x76], [1.25]):
+        passed += 1
+
+    # Test 77: Log of product - d/dx(ln(xy)) = 1/(xy) * y = 1/x
+    x77, y77 = Element(2), Element(3)
+    total += 1
+    # f(x, y) = ln(xy)
+    # df/dx = 1/(xy) * y = 1/x = 0.5
+    # df/dy = 1/(xy) * x = 1/y ≈ 0.3333
+    if test_case("Log of product: f(x,y) = ln(xy)",
+                 lambda: log(x77 * y77), [x77, y77], [0.5, 1.0/3.0]):
+        passed += 1
+
+    # Test 78: Nested log composition - d/dx(ln(x+1))
+    x78 = Element(3)
+    total += 1
+    # f(x) = ln(x + 1) = ln(4)
+    # df/dx = 1/(x+1) = 1/4 = 0.25
+    if test_case("Nested log: f(x) = ln(x+1)",
+                 lambda: log(x78 + 1), [x78], [0.25]):
+        passed += 1
+
+    # Test 79: Log with division - d/dx(ln(x/y))
+    x79, y79 = Element(8), Element(2)
+    total += 1
+    # f(x, y) = ln(x/y) = ln(4)
+    # df/dx = 1/(x/y) * (1/y) = y/(xy) = 1/x = 1/8 = 0.125
+    # df/dy = 1/(x/y) * (-x/y²) = -y/(xy) * (1/y) = -1/y = -0.5
+    if test_case("Log of division: f(x,y) = ln(x/y)",
+                 lambda: log(x79 / y79), [x79, y79], [0.125, -0.5]):
+        passed += 1
+
+    # Test 80: Log of power - d/dx(ln(x³)) = 3/x
+    x80 = Element(2)
+    total += 1
+    # f(x) = ln(x³)
+    # df/dx = 1/x³ * 3x² = 3/x = 1.5
+    if test_case("Log of power: f(x) = ln(x³)",
+                 lambda: log(x80 ** 3), [x80], [1.5]):
+        passed += 1
+
+    # Test 81: Log chain rule with deep nesting - d/dx(ln((x+2)²))
+    x81 = Element(2)
+    total += 1
+    # f(x) = ln((x+2)²) = ln(16)
+    # df/dx = 1/(x+2)² * 2(x+2) = 2/(x+2) = 2/4 = 0.5
+    if test_case("Deep log chain: f(x) = ln((x+2)²)",
+                 lambda: log((x81 + 2) ** 2), [x81], [0.5]):
+        passed += 1
+
+    # Test 82: Multiple logs - d/dx(ln(x) + ln(y))
+    x82, y82 = Element(2), Element(5)
+    total += 1
+    # f(x, y) = ln(x) + ln(y)
+    # df/dx = 1/x = 0.5
+    # df/dy = 1/y = 0.2
+    if test_case("Sum of logs: f(x,y) = ln(x) + ln(y)",
+                 lambda: log(x82) + log(y82), [x82, y82], [0.5, 0.2]):
+        passed += 1
+
+    # Test 83: Log of fraction with variable numerator and denominator
+    x83 = Element(6)
+    total += 1
+    # f(x) = ln(x / (x+1))
+    # df/dx = 1/(x/(x+1)) * d/dx(x/(x+1))
+    #       = (x+1)/x * (1*(x+1) - x*1)/(x+1)²
+    #       = (x+1)/x * 1/(x+1)²
+    #       = 1/(x(x+1))
+    #       = 1/(6*7) = 1/42 ≈ 0.0238
+    expected_grad = 1.0 / (6.0 * 7.0)
+    if test_case("Log of ratio: f(x) = ln(x/(x+1))",
+                 lambda: log(x83 / (x83 + 1)), [x83], [expected_grad]):
+        passed += 1
+
+    # Test 84: Small value log - testing numerical stability
+    x84 = Element(0.1)
+    total += 1
+    # ln(0.1) ≈ -2.303, d/dx = 1/0.1 = 10
+    if test_case("Log of small value: f(x) = ln(0.1)",
+                 lambda: log(x84), [x84], [10.0]):
+        passed += 1
+
+    # Test 85: Vector log (element-wise)
+    x85 = Element([[1, 2], [3, 4]])
+    z85 = log(x85)
+    # Manually propagate gradients
+    z85._grad = np.array([[1., 1.], [1., 1.]])
+    z85._grad_fn()
+    total += 1
+    # z = [[ln(1), ln(2)], [ln(3), ln(4)]]
+    # dL/dx = 1/x = [[1, 0.5], [0.333, 0.25]]
+    expected_x = 1.0 / np.array([[1., 2.], [3., 4.]])
+    passed_test = np.allclose(x85._grad, expected_x)
+    print(f"\n=== Vector log (element-wise) ===")
+    print(f"  x grad:\n{x85._grad}")
+    print(f"  Expected:\n{expected_x}")
     print(f"  Result: {'PASS' if passed_test else 'FAIL'}")
     if passed_test:
         passed += 1
@@ -557,7 +1009,7 @@ def run_tests():
     print(f"\n{'=' * 50}")
     print(f"Test Results: {passed}/{total} passed")
     print(f"Success rate: {100 * passed / total:.1f}%")
-    
+
     if passed == total:
         print("🎉 All tests passed!")
     else:

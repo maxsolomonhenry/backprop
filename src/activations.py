@@ -13,5 +13,5 @@ class SigmoidResult(Element):
     def _sigmoid(x):
         return 1.0 / (1.0 + np.exp(-x))
     
-def sigmoid(x):
+def sigmoid(x: Element) -> Element:
     return SigmoidResult(x)
